@@ -47,6 +47,8 @@ A python object (usually a list) for the meta information of key `key`.
 
 #### `data_generator(dsetname, batch_size, unified_index=True)`
 
+To get a generator, yielding data in pair `(inputs, labels)`.
+
 Args:
 
 * `dsetname`: the name of the dataset, usually
@@ -54,5 +56,9 @@ Args:
 	* `"test"`.
 * `batch_size`: the size of a batch.
 * `unified_index`: which represents whether to unify all index. If false, all fields will have its own index, starting from `0`.
+
+Returns:
+
+A generator for data packed in batches.
 
 
