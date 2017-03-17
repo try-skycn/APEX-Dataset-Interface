@@ -2,12 +2,16 @@
 
 dsetlist = ["ipinyou"]
 
-nasdir = input("Where is your NAS directory?\n(default /NAS/) >>> ")
+try:
+	nasdir = input("Where is your NAS directory?\n(default /NAS/) >>> ")
+except KeyboardInterrupt:
+	print("Exit.")
+	exit(0)
 
 if nasdir == "":
 	nasdir = "/NAS/"
 
-import os.paht
+import os.path
 datasetdir = os.path.join(nasdir, "Dataset", "Ads", "APEXDatasets")
 
 import subprocess
