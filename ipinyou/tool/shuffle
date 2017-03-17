@@ -18,7 +18,7 @@ def shuffle_indices(top, mainfile, leftfile, rightfile):
 	with open(mainfile, "w") as fmain:
 		for i in range(top):
 			print(i, file=fmain)
-	for i in range(int(math.log(top)) + 2):
+	for i in range(int(math.log(top, 2)) + 2):
 		print("\r{}".format(i), end='')
 		shuffle_loop(mainfile, leftfile, rightfile)
 	print(end='\r')
