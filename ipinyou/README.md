@@ -4,17 +4,19 @@
 This dataset is a standard version of indexed iPinyou dataset (threshold chosen) **ONLY IN APEX LAB**.
 
 ## Configuration
-Threshold chosen: 5
+Threshold chosen: `5`
 
 Fields:
 
 * The first one represents click-or-not
-* Other 28 fields are categorical
+* Other `28` fields are categorical
 
 Original dataset includes:
 
-* 15395258 samples in the training set
-* 4100716 samples in the test set
+* `15395258` samples in the training set
+* `4100716` samples in the test set
+
+Positive samples over total samples: `0.075%`
 
 ## Usage
 
