@@ -1,0 +1,61 @@
+#!/bin/usr/env python3
+import sys
+_, cmd, *args = sys.argv
+
+import random, math
+def shuffle_loop(mainfile, leftfile, rightfile):
+	with open(mainfile, "r") as fmain, open(leftfile, "w") as fleft, open(rightfile, "w") as fright:
+		foutlist = [fleft, fright]
+		for line in fmain:
+			foutlist[random.randrange(2)].write(line)
+	with open(leftfile, "r") as fleft, open(rightfile, "r") as fright, open(mainfile, "w") as fmain:
+		for line in fleft:
+			fmain.write(line)
+		for line in fright:
+			fmain.write(line)
+
+def shuffle_indices(top, mainfile, leftfile, rightfile):
+	with open(mainfile, "w") as fmain:
+		for i in range(top):
+			print(i, file=fmain)
+	for _ in range(int(math.log(top)) + 2):
+		shuffle_loop(mainfile, leftfile, rightfile)
+
+from h5py import File
+import os.path
+def shuffle_dset(infile, dsetname, outfile):
+	fin = File(filename, "r")
+	fout = File(filename, "w")
+	for k in fin.attrs.keys():
+		fout.attrs[k] = fin.attrs[k]
+	for k in fin.keys():
+		if k != dsetname:
+			dset = fout.create_dataset(k, fin[k].shape, dtype=fin[k].dtype)
+			dset[:] = fin[k][:]
+	mainfile = os.path.join("/tmp", "mainfile")
+	leftfile = os.path.join("/tmp", "leftfile")
+	rightfile = os.path.join("/tmp", "rightfile")
+	shuffle_indices(fin[k].shape[0], mainfile, leftfile, rightfile)
+	dset = fout.create_dataset(dsetname, fin[dsetname].shape, dtype=fin[dsetname].dtype)
+	with open(mainfile, "r") as fmain:
+		for i, (line, x) in enumerate(zip(fmain, fin[dsetname])):
+			ind = int(line.strip())
+			dset[ind] = x
+	fin.close()
+	fout.close()
+
+import argparse
+parser = argparse.Parser()
+parser.add_argument("infile")
+parser.add_argument("dsetname")
+parser.add_argument("outfile")
+args = parser.parse_args()
+
+try:
+	shuffle_dset(args.infile, args.dsetname, args.outfile)
+except KeyboardInterrupt:
+	print("Stop.")
+	import subprocess
+	if os.path.exists(outfile):
+		subprocess.run(["rm", args.outfile])
+
