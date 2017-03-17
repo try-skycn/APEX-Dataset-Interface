@@ -1,9 +1,9 @@
-import os.path, json, numpy as np
+import json, numpy as np
+from ipinyou._config_ import default_data_path
 from h5py import File
 
-_default_path_ = os.path.realpath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "data"))
 class CTRLoader:
-	def __init__(self, datafile=_default_path_):
+	def __init__(self, datafile=default_data_path):
 		self.f = File(datafile)
 		self._sizes_ = self.meta("sizes")
 		self.unified_size = int(np.sum(self._sizes_[1:]))
