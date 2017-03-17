@@ -1,4 +1,4 @@
-#!/bin/usr/env python3
+#!/usr/bin/env python3
 import sys
 _, cmd, *args = sys.argv
 
@@ -18,24 +18,30 @@ def shuffle_indices(top, mainfile, leftfile, rightfile):
 	with open(mainfile, "w") as fmain:
 		for i in range(top):
 			print(i, file=fmain)
-	for _ in range(int(math.log(top)) + 2):
+	for i in range(int(math.log(top)) + 2):
+		print("\r{}".format(i), end='')
 		shuffle_loop(mainfile, leftfile, rightfile)
+	print(end='\r')
 
 from h5py import File
 import os.path
 def shuffle_dset(infile, dsetname, outfile):
-	fin = File(filename, "r")
-	fout = File(filename, "w")
+	fin = File(infile, "r")
+	fout = File(outfile, "w")
 	for k in fin.attrs.keys():
+		print("Copying attribute {} ...".format(k))
 		fout.attrs[k] = fin.attrs[k]
 	for k in fin.keys():
 		if k != dsetname:
+			print("Copying dataset {} ...".format(k))
 			dset = fout.create_dataset(k, fin[k].shape, dtype=fin[k].dtype)
 			dset[:] = fin[k][:]
 	mainfile = os.path.join("/tmp", "mainfile")
 	leftfile = os.path.join("/tmp", "leftfile")
 	rightfile = os.path.join("/tmp", "rightfile")
+	print("Shuffling indices ...")
 	shuffle_indices(fin[k].shape[0], mainfile, leftfile, rightfile)
+	print("Copying shuffled dataset {} ...".format(dsetname))
 	dset = fout.create_dataset(dsetname, fin[dsetname].shape, dtype=fin[dsetname].dtype)
 	with open(mainfile, "r") as fmain:
 		for i, (line, x) in enumerate(zip(fmain, fin[dsetname])):
@@ -45,7 +51,7 @@ def shuffle_dset(infile, dsetname, outfile):
 	fout.close()
 
 import argparse
-parser = argparse.Parser()
+parser = argparse.ArgumentParser()
 parser.add_argument("infile")
 parser.add_argument("dsetname")
 parser.add_argument("outfile")
@@ -56,6 +62,6 @@ try:
 except KeyboardInterrupt:
 	print("Stop.")
 	import subprocess
-	if os.path.exists(outfile):
+	if os.path.exists(args.outfile):
 		subprocess.run(["rm", args.outfile])
 
