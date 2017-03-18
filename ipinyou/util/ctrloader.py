@@ -4,16 +4,16 @@ from h5py import File
 
 class CTRLoader:
 	def __init__(self, datafile=default_data_path):
-		self.f = File(datafile)
+		self._f_ = File(datafile)
 		self._sizes_ = self.meta("sizes")
 		self.unified_size = int(np.sum(self._sizes_[1:]))
 		self._offset_ = np.array([np.sum(self._sizes_[1:i+1]) for i, _ in enumerate(self._sizes_[1:], start=1)], dtype=int)
 	
 	def meta(self, key):
-		return json.loads(self.f.attrs[key])
+		return json.loads(self._f_.attrs[key])
 	
 	def _line_generator_(self, dsetname):
-		dset = self.f[dsetname]
+		dset = self._f_[dsetname]
 		for line in dset:
 			yield line
 	
