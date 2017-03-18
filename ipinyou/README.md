@@ -30,7 +30,7 @@ How to use:
 from ipinyou import CTRLoader
 ```
 
-#### `meta(key)`
+#### Method: `meta(key)`
 
 Args:
 
@@ -47,7 +47,7 @@ Returns:
 
 A python object (usually a list) for the meta information of key `key`.
 
-#### `data_generator(dsetname, batch_size, unified_index=True)`
+#### Method: `data_generator(dsetname, batch_size, unified_index=True)`
 
 To get a generator, yielding data in pair `(inputs, labels)`.
 
@@ -62,5 +62,9 @@ Args:
 Returns:
 
 A generator for data packed in batches.
+
+#### Property: unified_size
+
+A value representing the total number of categories across all categorical fields
 
 
