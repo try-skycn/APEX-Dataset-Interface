@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+from h5py import File
+import argparse, random, os.path
+
+def generate_random(outfile, length, prob):
+	pos, neg = 0, 0
+	with open(outfile, "w") as fout:
+		for i in range(length):
+			if random.random() < prob:
+				pos += 1
+				print(1, file=fout)
+			else:
+				neg += 1
+				print(0, file=fout)
+			if (i + 1) % 100000 == 0:
+				print("\033[K{}".format(i + 1), end='\r', flush=True)
+		print("\033[K{}".format(i + 1))
+	return pos, neg
+
+def get_binary(tmpfile):
+	with open(tmpfile, "r") as f:
+		for line in f:
+			if line.strip() == "1":
+				yield True
+			elif line.strip() == "0":
+				yield False
+			else:
+				raise ValueError("Generated value {}.".format(line.strip()))
+
+def select(infile, fromdset, todset, prob, outfile):
+	fin = File(infile, "r")
+	fout = File(outfile, "w")
+	if fromdset not in fin:
+		raise ValueError("Dataset {} is not in file {}.".format(fromdset, infile))
+	if todset in fin:
+		raise ValueError("Dataset {] is already in file {}.".format(todset, infile))
+	for k in fin.attrs.keys():
+		print("Copying attribute {} ...".format(k))
+		fout.attrs[k] = fin.attrs[k]
+	for k in fin.keys():
+		if k != fromdset:
+			print("Copying dataset {} ...".format(k))
+			dset = fin[k]
+			new_dset = fout.create_dataset(k, dset.shape, dset.dtype)
+			new_dset[:] = dset[:]
+	print("Selecting dataset {} to {} ...".format(fromdset, todset))
+	tmpfile = os.path.join("/tmp", "randomgen")
+	dset = fin[fromdset]
+	print("Generating binary file ...")
+	pos, neg = generate_random(tmpfile, dset.shape[0], prob)
+	new_fromdset = fout.create_dataset(fromdset, [neg, *dset.shape[1:]], dset.dtype)
+	new_todset = fout.create_dataset(todset, [pos, *dset.shape[1:]], dset.dtype)
+	fromcnt, tocnt = 0, 0
+	print("Copying dataset ...")
+	for i, (binary, line) in enumerate(zip(get_binary(tmpfile), dset), start=1):
+		if binary:
+			new_todset[tocnt] = line
+			tocnt += 1
+		else:
+			new_fromdset[fromcnt] = line
+			fromcnt += 1
+		if i % 100000 == 0:
+			print("\033[K{}".format(i), end='\r', flush=True)
+	print("\033[K{}".format(i))
+	fin.close()
+	fout.close()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("infile")
+parser.add_argument("fromdset")
+parser.add_argument("todset")
+parser.add_argument("prob", type=float)
+parser.add_argument("outfile")
+args = parser.parse_args()
+
+try:
+	select(**args.__dict__)
+except KeyboardInterrupt:
+	print("Stop.")
+	import subprocess
+	if os.path.exists(args.outfile):
+		subprocess.run(["rm", args.outfile])
+
