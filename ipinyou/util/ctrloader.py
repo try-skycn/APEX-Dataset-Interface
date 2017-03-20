@@ -12,13 +12,13 @@ class CTRLoader:
 	def meta(self, key):
 		return json.loads(self._f_.attrs[key])
 	
-	def _line_generator_(self, dsetname):
-		dset = self._f_[dsetname]
-		for line in dset:
-			yield line
+	def _line_generator_(self, dsetname, loop_times):
+		for i in range(loop_times):
+			for line in self._f_[dsetname]:
+				yield line
 	
-	def data_generator(self, dsetname, batch_size, unified_index=True):
-		generator = self._line_generator_(dsetname)
+	def data_generator(self, dsetname, batch_size, unified_index=True, loop_times=1):
+		generator = self._line_generator_(dsetname, loop_times)
 		while True:
 			inputs, labels = np.zeros((batch_size, len(self._sizes_[1:])), dtype=int), np.zeros((batch_size, ), dtype=int)
 			for i, line in zip(range(batch_size), generator):
