@@ -34,8 +34,8 @@ def shuffle_loop(fromdset, todset, buffer_size=1000000):
 
 def shuffle(fromdset, todset, tmpfile="/tmp/shuffle_tmp.h5"):
 	ftmp = File(tmpfile, "w")
-	leftdset = ftmp.create_dataset("left", fromdset.shape, fromdset.dtype)
-	rightdset = ftmp.create_dataset("right", fromdset.shape, fromdset.dtype)
+	leftdset = ftmp.create_dataset("left", fromdset.shape, dtype=fromdset.dtype)
+	rightdset = ftmp.create_dataset("right", fromdset.shape, dtype=fromdset.dtype)
 	dsets = [leftdset, rightdset]
 	print("Copying origin dataset to tmp dataset ...")
 	leftdset[:] = fromdset[:]
@@ -50,6 +50,7 @@ def shuffle(fromdset, todset, tmpfile="/tmp/shuffle_tmp.h5"):
 
 def shuffle_dset(infile, dsetname, outfile):
 	fin = File(infile, "r")
+	assert dsetname in fin.keys(), "Dataset {} is not in file {}".format(dsetname, infile)
 	fout = File(outfile, "w")
 	for k in fin.attrs.keys():
 		print("Copying attribute {} ...".format(k))
@@ -59,14 +60,10 @@ def shuffle_dset(infile, dsetname, outfile):
 			print("Copying dataset {} ...".format(k))
 			dset = fout.create_dataset(k, fin[k].shape, dtype=fin[k].dtype)
 			dset[:] = fin[k][:]
-	print("Shuffling indices ...")
-	shuffle_indices(fin[k].shape[0], mainfile, leftfile, rightfile)
 	print("Copying shuffled dataset {} ...".format(dsetname))
-	dset = fout.create_dataset(dsetname, fin[dsetname].shape, dtype=fin[dsetname].dtype)
-	with open(mainfile, "r") as fmain:
-		for i, (line, x) in enumerate(zip(fmain, fin[dsetname])):
-			ind = int(line.strip())
-			dset[ind] = x
+	fromdset = fin[dsetname]
+	todset = fout.create_dataset(dsetname, fromdset.shape, dtype=todset.dtype)
+	shuffle(fromdset, todset)
 	fin.close()
 	fout.close()
 
