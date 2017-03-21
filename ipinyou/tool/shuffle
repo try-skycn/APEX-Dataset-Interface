@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import random, math, subprocess
+import random, math, subprocess, numpy as np
 from h5py import File
 import os.path
 
@@ -8,7 +8,7 @@ def dynamic_print(i, end=False):
 	if end:
 		print("\033[K" + s)
 	else:
-		print("\033[K" + s, end='\033[{}C'.format(len(s)), flush=True)
+		print("\033[K" + s, end='\033[{}D'.format(len(s)), flush=True)
 
 def line_generator(dset, start, end, buffer_size=1000000):
 	for l in range(start, end, buffer_size):
@@ -24,13 +24,14 @@ def shuffle_line_generator(fromdset):
 		sizes[logit] -= 1
 
 def shuffle_loop(fromdset, todset, buffer_size=1000000):
+	start, end = 0, fromdset.shape[0]
 	buf = np.zeros([buffer_size, *fromdset.shape[1:]])
 	gen = shuffle_line_generator(fromdset)
 	for l in range(start, end, buffer_size):
 		r = min(l + buffer_size, end)
 		for i in range(r - l):
 			buf[i] = next(gen)
-		toset[l:r] = buf[:r-l]
+		todset[l:r] = buf[:r-l]
 
 def shuffle(fromdset, todset, tmpfile="/tmp/shuffle_tmp.h5"):
 	ftmp = File(tmpfile, "w")
@@ -39,7 +40,7 @@ def shuffle(fromdset, todset, tmpfile="/tmp/shuffle_tmp.h5"):
 	dsets = [leftdset, rightdset]
 	print("Copying origin dataset to tmp dataset ...")
 	leftdset[:] = fromdset[:]
-	for i in range(int(math.log(top, 2)) + 2):
+	for i in range(int(math.log(fromdset.shape[0], 2)) + 2):
 		dynamic_print(i)
 		shuffle_loop(dsets[i % 2], dsets[(i + 1) % 2])
 	dynamic_print(i, True)
@@ -62,7 +63,7 @@ def shuffle_dset(infile, dsetname, outfile):
 			dset[:] = fin[k][:]
 	print("Copying shuffled dataset {} ...".format(dsetname))
 	fromdset = fin[dsetname]
-	todset = fout.create_dataset(dsetname, fromdset.shape, dtype=todset.dtype)
+	todset = fout.create_dataset(dsetname, fromdset.shape, dtype=fromdset.dtype)
 	shuffle(fromdset, todset)
 	fin.close()
 	fout.close()
