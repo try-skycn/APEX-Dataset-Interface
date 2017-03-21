@@ -61,7 +61,7 @@ def shuffle_dset(infile, dsetname, outfile):
 			print("Copying dataset {} ...".format(k))
 			dset = fout.create_dataset(k, fin[k].shape, dtype=fin[k].dtype)
 			dset[:] = fin[k][:]
-	print("Copying shuffled dataset {} ...".format(dsetname))
+	print("Shuffling dataset {} ...".format(dsetname))
 	fromdset = fin[dsetname]
 	todset = fout.create_dataset(dsetname, fromdset.shape, dtype=fromdset.dtype)
 	shuffle(fromdset, todset)
