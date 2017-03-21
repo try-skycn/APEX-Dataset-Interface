@@ -1,30 +1,53 @@
 #!/usr/bin/env python3
-import sys
-_, cmd, *args = sys.argv
-
-import random, math
-def shuffle_loop(mainfile, leftfile, rightfile):
-	with open(mainfile, "r") as fmain, open(leftfile, "w") as fleft, open(rightfile, "w") as fright:
-		foutlist = [fleft, fright]
-		for line in fmain:
-			foutlist[random.randrange(2)].write(line)
-	with open(leftfile, "r") as fleft, open(rightfile, "r") as fright, open(mainfile, "w") as fmain:
-		for line in fleft:
-			fmain.write(line)
-		for line in fright:
-			fmain.write(line)
-
-def shuffle_indices(top, mainfile, leftfile, rightfile):
-	with open(mainfile, "w") as fmain:
-		for i in range(top):
-			print(i, file=fmain)
-	for i in range(int(math.log(top, 2)) + 2):
-		print("\r{}".format(i), end='')
-		shuffle_loop(mainfile, leftfile, rightfile)
-	print(end='\r')
-
+import random, math, subprocess
 from h5py import File
 import os.path
+
+def dynamic_print(i, end=False):
+	s = str(i)
+	if end:
+		print("\033[K" + s)
+	else:
+		print("\033[K" + s, end='\033[{}C'.format(len(s)), flush=True)
+
+def line_generator(dset, start, end, buffer_size=1000000):
+	for l in range(start, end, buffer_size):
+		yield from dset[l:min(l + buffer_size, end)]
+
+def shuffle_line_generator(fromdset):
+	start, mid, end = 0, fromdset.shape[0] // 2, fromdset.shape[0]
+	gens = [line_generator(fromdset, start, mid), line_generator(fromdset, mid, end)]
+	sizes = [mid - start, end - mid]
+	while sizes[0] + sizes[1] > 0:
+		logit = int(random.random() * (sizes[0] + sizes[1]) < sizes[1])
+		yield next(gens[logit])
+		sizes[logit] -= 1
+
+def shuffle_loop(fromdset, todset, buffer_size=1000000):
+	buf = np.zeros([buffer_size, *fromdset.shape[1:]])
+	gen = shuffle_line_generator(fromdset)
+	for l in range(start, end, buffer_size):
+		r = min(l + buffer_size, end)
+		for i in range(r - l):
+			buf[i] = next(gen)
+		toset[l:r] = buf[:r-l]
+
+def shuffle(fromdset, todset, tmpfile="/tmp/shuffle_tmp.h5"):
+	ftmp = File(tmpfile, "w")
+	leftdset = ftmp.create_dataset("left", fromdset.shape, fromdset.dtype)
+	rightdset = ftmp.create_dataset("right", fromdset.shape, fromdset.dtype)
+	dsets = [leftdset, rightdset]
+	print("Copying origin dataset to tmp dataset ...")
+	leftdset[:] = fromdset[:]
+	for i in range(int(math.log(top, 2)) + 2):
+		dynamic_print(i)
+		shuffle_loop(dsets[i % 2], dsets[(i + 1) % 2])
+	dynamic_print(i, True)
+	print("Copying tmp dataset to dest dataset")
+	todset[:] = dsets[(i + 1) % 2][:]
+	ftmp.close()
+	subprocess.run(["rm", tmpfile])
+
 def shuffle_dset(infile, dsetname, outfile):
 	fin = File(infile, "r")
 	fout = File(outfile, "w")
@@ -36,9 +59,6 @@ def shuffle_dset(infile, dsetname, outfile):
 			print("Copying dataset {} ...".format(k))
 			dset = fout.create_dataset(k, fin[k].shape, dtype=fin[k].dtype)
 			dset[:] = fin[k][:]
-	mainfile = os.path.join("/tmp", "mainfile")
-	leftfile = os.path.join("/tmp", "leftfile")
-	rightfile = os.path.join("/tmp", "rightfile")
 	print("Shuffling indices ...")
 	shuffle_indices(fin[k].shape[0], mainfile, leftfile, rightfile)
 	print("Copying shuffled dataset {} ...".format(dsetname))
@@ -61,7 +81,6 @@ try:
 	shuffle_dset(args.infile, args.dsetname, args.outfile)
 except KeyboardInterrupt:
 	print("Stop.")
-	import subprocess
 	if os.path.exists(args.outfile):
 		subprocess.run(["rm", args.outfile])
 
