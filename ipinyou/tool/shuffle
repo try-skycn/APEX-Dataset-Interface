@@ -4,7 +4,7 @@ from h5py import File
 import os.path
 
 def copy_dataset(fromdset, todset):
-	for l, r in util.lrange(0, fromdset.shape[0]):
+	for l, r in util.lrange(0, fromdset.shape[0], progress_bar=True):
 		todset[l:r] = fromdset[l:r]
 
 def create_dataset(fromdset, f, dsetname):
@@ -29,7 +29,7 @@ def shuffle_loop(fromdset, todset, buffer_size=100000):
 	start, end = 0, fromdset.shape[0]
 	buf = np.zeros([buffer_size, *fromdset.shape[1:]])
 	gen = shuffle_line_generator(fromdset)
-	for l, r in util.lrange(start, end, buffer_size):
+	for l, r in util.lrange(start, end, buffer_size, progress_bar=True):
 		for i in range(r - l):
 			buf[i] = next(gen)
 		todset[l:r] = buf[:r-l]
@@ -43,7 +43,7 @@ def shuffle(fromdset, todset, tmpfile="/tmp/shuffle_tmp.h5"):
 	for i in range(int(math.log(fromdset.shape[0], 2)) + 2):
 		print("Shuffle loop {} ...".format(i + 1))
 		shuffle_loop(dsets[i % 2], dsets[(i + 1) % 2])
-	print("Copying tmpdset to dest todset")
+	print("Copying tmpdset to dest todset ...")
 	copy_dataset(dsets[(i + 1) % 2], todset)
 	ftmp.close()
 	subprocess.run(["rm", tmpfile])
