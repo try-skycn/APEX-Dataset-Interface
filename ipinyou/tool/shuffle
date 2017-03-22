@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-import random, math, subprocess, numpy as np
+import random, math, subprocess, numpy as np, util
 from h5py import File
 import os.path
 
-def dynamic_print(i, end=False):
-	s = str(i)
-	if end:
-		print("\033[K" + s)
-	else:
-		print("\033[K" + s, end='\033[{}D'.format(len(s)), flush=True)
+def copy_dataset(fromdset, todset):
+	for l, r in util.lrange(0, fromdset.shape[0]):
+		todset[l:r] = fromdset[l:r]
 
-def line_generator(dset, start, end, buffer_size=1000000):
-	for l in range(start, end, buffer_size):
-		yield from dset[l:min(l + buffer_size, end)]
+def create_dataset(fromdset, f, dsetname):
+	return f.create_dataset(dsetname, fromdset.shape, fromdset.dtype)
+
+def line_generator(dset, start, end):
+	for l, r in util.lrange(start, end):
+		yield from dset[l:r]
 
 def shuffle_line_generator(fromdset):
 	start, mid, end = 0, fromdset.shape[0] // 2, fromdset.shape[0]
@@ -22,61 +22,56 @@ def shuffle_line_generator(fromdset):
 		logit = int(random.random() * (sizes[0] + sizes[1]) < sizes[1])
 		yield next(gens[logit])
 		sizes[logit] -= 1
+	gens[0].close()
+	gens[1].close()
 
-def shuffle_loop(fromdset, todset, buffer_size=1000000):
+def shuffle_loop(fromdset, todset, buffer_size=100000):
 	start, end = 0, fromdset.shape[0]
 	buf = np.zeros([buffer_size, *fromdset.shape[1:]])
 	gen = shuffle_line_generator(fromdset)
-	for l in range(start, end, buffer_size):
-		r = min(l + buffer_size, end)
+	for l, r in util.lrange(start, end, buffer_size):
 		for i in range(r - l):
 			buf[i] = next(gen)
 		todset[l:r] = buf[:r-l]
+	gen.close()
 
 def shuffle(fromdset, todset, tmpfile="/tmp/shuffle_tmp.h5"):
 	ftmp = File(tmpfile, "w")
-	leftdset = ftmp.create_dataset("left", fromdset.shape, dtype=fromdset.dtype)
-	rightdset = ftmp.create_dataset("right", fromdset.shape, dtype=fromdset.dtype)
-	dsets = [leftdset, rightdset]
-	print("Copying origin dataset to tmp dataset ...")
-	leftdset[:] = fromdset[:]
+	dsets = [create_dataset(fromdset, ftmp, "left"), create_dataset(fromdset, ftmp, "right")]
+	print("Copying fromdset to tmpdset ...")
+	copy_dataset(fromdset, dsets[0])
 	for i in range(int(math.log(fromdset.shape[0], 2)) + 2):
-		dynamic_print(i)
+		print("Shuffle loop {} ...".format(i + 1))
 		shuffle_loop(dsets[i % 2], dsets[(i + 1) % 2])
-	dynamic_print(i, True)
-	print("Copying tmp dataset to dest dataset")
-	todset[:] = dsets[(i + 1) % 2][:]
+	print("Copying tmpdset to dest todset")
+	copy_dataset(dsets[(i + 1) % 2], todset)
 	ftmp.close()
 	subprocess.run(["rm", tmpfile])
 
-def shuffle_dset(infile, dsetname, outfile):
-	fin = File(infile, "r")
-	assert dsetname in fin.keys(), "Dataset {} is not in file {}".format(dsetname, infile)
-	fout = File(outfile, "w")
-	for k in fin.attrs.keys():
+def main(args):
+	fin, fout = File(args.source, "r"), File(args.target, "w")
+	for k, v in fin.attrs.items():
 		print("Copying attribute {} ...".format(k))
-		fout.attrs[k] = fin.attrs[k]
-	for k in fin.keys():
-		if k != dsetname:
+		fout.attrs[k] = v
+	for k, fromdset in fin.items():
+		todset = create_dataset(fromdset, fout, k)
+		if k in args.dsets:
+			print("Shuffling dataset {} ...".format(k))
+			shuffle(fromdset, todset)
+		else:
 			print("Copying dataset {} ...".format(k))
-			dset = fout.create_dataset(k, fin[k].shape, dtype=fin[k].dtype)
-			dset[:] = fin[k][:]
-	print("Shuffling dataset {} ...".format(dsetname))
-	fromdset = fin[dsetname]
-	todset = fout.create_dataset(dsetname, fromdset.shape, dtype=fromdset.dtype)
-	shuffle(fromdset, todset)
-	fin.close()
-	fout.close()
+			copy_dataset(fromdset, todset)
+	fin.close(); fout.close()
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("infile")
-parser.add_argument("dsetname")
-parser.add_argument("outfile")
+parser.add_argument("source")
+parser.add_argument("--dset", dest="dsets", action="append")
+parser.add_argument("target")
 args = parser.parse_args()
 
 try:
-	shuffle_dset(args.infile, args.dsetname, args.outfile)
+	main(args)
 except KeyboardInterrupt:
 	print("Stop.")
 	if os.path.exists(args.outfile):
