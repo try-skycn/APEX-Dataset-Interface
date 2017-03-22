@@ -25,6 +25,12 @@ Return the absolute file path given the name of the dataset (`dataname`).
 
 ### Class: `apexdsets.CTRLoader`
 
+#### Method: `__init__(datapath)`
+Constructor. Example:
+```python
+loader = CTRLoader(datapath("ipinyou"))
+```
+
 #### Method: `meta(key)`
 
 Args:
